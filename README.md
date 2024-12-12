@@ -18,7 +18,7 @@ body builder. Kraftprotz.
 ## What
 
 The goal of this project is to produce an English language corpus builder.
-Initially, it is intended to be run locally, but I'll eventually look at getting 
+Initially, it is intended to be run locally, but I'll eventually look at getting
 it set up to run in the cloud.
 
 The corpus is a key-val store, `map[string]int`-style, that gets loaded from
@@ -35,19 +35,19 @@ If the word exists in the corpus, it's incremented. If it does not exist in the
 corpus, it isn't added. More on that later.
 
 When all is complete, the entirety of the corpus will be marshalled into a 2-col
-CSV (term,frequency), and saved. From there, I'll publish the results someplace 
+CSV (term,frequency), and saved. From there, I'll publish the results someplace
 where they're freely available.
 
 ### Considerations
 
 - maxWorkers: We don't want to throttle the local system due to resources.
 - domain request throttling:
-  - logarithmic back-off: if the domain starts throttling us, back off on the 
-    request timing, per the usual API request patterns
-  - self-throttling: in an effort to not get throttled by the other end, and
-    more importantly, to not look like a nefarious actor (because we're not),
-    limit the number of requests to a given domain to a configured value (be it
-    requests per time period, or time between requests)
+    - logarithmic back-off: if the domain starts throttling us, back off on the
+      request timing, per the usual API request patterns
+    - self-throttling: in an effort to not get throttled by the other end, and
+      more importantly, to not look like a nefarious actor (because we're not),
+      limit the number of requests to a given domain to a configured value (be it
+      requests per time period, or time between requests)
 - copyrights: not a concern. at no point will any IP be reproduced or
   distributed in a manner that could be legally regarded as derivative. it's
   literally just bean counting, and the number of times the word "the" appears
@@ -109,3 +109,29 @@ the application in terms of complexity...just resources.
 - Idk, other languages?
 
 
+---
+
+# README -- Rails Generated
+
+This README would normally document whatever steps are necessary to get the
+application up and running.
+
+Things you may want to cover:
+
+* Ruby version
+
+* System dependencies
+
+* Configuration
+
+* Database creation
+
+* Database initialization
+
+* How to run the test suite
+
+* Services (job queues, cache servers, search engines, etc.)
+
+* Deployment instructions
+
+* ...
