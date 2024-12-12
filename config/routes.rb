@@ -7,6 +7,7 @@ Rails.application.routes.draw do
 
   get "tests/", to: "tests#index"
   get "tests/nietzsche", to: "tests#nietzsche"
+  get "tests/small", to: "tests#small"
 
   # Render dynamic PWA files from app/views/pwa/* (remember to link manifest in application.html.erb)
   # get "manifest" => "rails/pwa#manifest", as: :pwa_manifest

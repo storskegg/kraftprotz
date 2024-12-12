@@ -4,4 +4,7 @@ class TestsController < ApplicationController
 
   def nietzsche
   end
+
+  def small
+  end
 end
