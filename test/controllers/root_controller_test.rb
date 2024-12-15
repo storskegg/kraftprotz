@@ -6,3 +6,7 @@ class RootControllerTest < ActionDispatch::IntegrationTest
     assert_response :success
   end
 end
+
+def root_index_url
+  root_path
+end

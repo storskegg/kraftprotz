@@ -61,3 +61,9 @@ group :test do
   gem "capybara"
   gem "selenium-webdriver"
 end
+
+gem "poppler", "~> 4.2"
+
+gem "nokogiri", "~> 1.17"
+
+gem "httparty", "~> 0.22.0"
