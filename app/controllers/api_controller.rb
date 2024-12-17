@@ -48,19 +48,52 @@ def get_body_as_words(page_url)
   doc = Nokogiri::HTML5(response.body.to_s)
 
   doc.css('body>*').each do |node|
-    node_text = node.inner_text.to_s.strip
-    Rails.logger.warn "Node text: '#{node_text}'"
-    if node_text.empty?
+    result = prepare_line(node.inner_text.to_s.strip)
+
+    if result[:words].empty?
       Rails.logger.warn "Skipping empty node"
       next
     else
-      words_s = node_text.downcase.gsub(/[\W\d_]+/, ' ')
-      hash_s = Digest::SHA512.hexdigest words_s
-      words = words_s.split
-      Rails.logger.warn "Set [#{hash_s}]: #{words}"
-      accumulator << words
+      Rails.logger.warn "Set [#{result[:hash_s]}]: #{result[:words_s]}"
+      accumulator << result[:words]
     end
   end
 
-  accumulator
+  accumulator.flatten
+end
+
+def prepare_line(line)
+  result = new Line
+  temp = line.gsub(/[\W\d_]+/, ' ').strip.downcase
+  if temp.empty?
+    result
+  end
+
+  result.set(temp)
+
+  result
+end
+
+class Line
+  @words = []
+  @words_s = ""
+  @hash_s = ""
+
+  def words
+    @words
+  end
+
+  def hash_s
+    @hash_s
+  end
+
+  def words_s
+    @words_s
+  end
+
+  def set(words_s)
+    @words_s = words_s
+    @hash = Digest::SHA256.hexdigest words_s
+    @words = words_s.split
+  end
 end

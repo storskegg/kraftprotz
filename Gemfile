@@ -69,3 +69,5 @@ gem "nokogiri", "~> 1.17"
 gem "httparty", "~> 0.22.0"
 
 gem "digest", "~> 3.1"
+
+gem "redis", "~> 5.3"
