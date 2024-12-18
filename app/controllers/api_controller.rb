@@ -1,8 +1,9 @@
 class ApiController < ActionController::API
   def small
     begin
-      page_url = URI.parse(request.base_url + root_path + 'tests/small')
-      words = get_body_as_words(page_url)
+      # http://localhost:3000/media/pdf/small.pdf
+      page_url = URI.parse(request.base_url + root_path + 'media/pdf/small.pdf')
+      words = get_pdf_as_words(page_url)
       render json: words.to_json
     rescue => e
       Rails.logger.error "Error fetching page: #{e.message}"
@@ -14,7 +15,7 @@ class ApiController < ActionController::API
   def nietzsche
     begin
       page_url = URI.parse(request.base_url + root_path + 'tests/nietzsche')
-      words = get_body_as_words(page_url)
+      words = get_html_as_words(page_url)
       render json: words.to_json
     rescue => e
       Rails.logger.error "Error fetching page: #{e.message}"
@@ -29,7 +30,42 @@ class HTMLBody
   format :html
 end
 
-def get_body_as_words(page_url)
+def get_pdf_as_words(pdf_url)
+  accumulator = []
+
+  response = HTTParty.get(pdf_url, {
+    headers:{
+      "Accept" => "application/pdf",
+      "User-Agent" => "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:134.0) Gecko/20100101 Firefox/134.0"
+    },
+    open_timeout: 500.in_milliseconds,
+    write_timeout: 1.seconds,
+    read_timeout: 5.seconds,
+  })
+
+  response.inspect
+
+  Tempfile.create do |file|
+    file.write(response.body)
+
+    temp_path = File.absolute_path(file.path.to_s)
+    doc = Poppler::Document.new(temp_path)
+    doc.each do |page|
+      result = prepare_line(page.text.to_s)
+      if result[:words].empty?
+        Rails.logger.warn "Skipping empty page"
+        next
+      else
+        Rails.logger.warn "Set [#{result[:hash_s]}]: #{result[:words_s]}"
+        accumulator << result[:words]
+      end
+    end
+  end
+
+  accumulator
+end
+
+def get_html_as_words(page_url)
   accumulator = []
 
   response = HTMLBody.get(page_url, {
@@ -40,7 +76,7 @@ def get_body_as_words(page_url)
     },
     open_timeout: 500.in_milliseconds,
     write_timeout: 1.seconds,
-    read_timeout: 3.seconds
+    read_timeout: 3.seconds,
   })
 
   response.inspect
