@@ -1,3 +1,10 @@
+module PDFHandling
+  Per_Line = 1
+  Per_Page = 2
+end
+
+PDF_HANDLE_METHOD = PDFHandling::Per_Line
+
 class ApiController < ActionController::API
   def small
     begin
@@ -45,24 +52,43 @@ def get_pdf_as_words(pdf_url)
 
   response.inspect
 
-  Tempfile.create do |file|
-    file.write(response.body)
+  if response.code == 200
+    Tempfile.create do |file|
+      file.binmode
+      file.write(response.body)
 
-    temp_path = File.absolute_path(file.path.to_s)
-    doc = Poppler::Document.new(temp_path)
-    doc.each do |page|
-      result = prepare_line(page.text.to_s)
-      if result[:words].empty?
-        Rails.logger.warn "Skipping empty page"
-        next
-      else
-        Rails.logger.warn "Set [#{result[:hash_s]}]: #{result[:words_s]}"
-        accumulator << result[:words]
+      temp_path = File.absolute_path(file.path.to_s)
+      doc = Poppler::Document.new(temp_path)
+
+      if PDF_HANDLE_METHOD == PDFHandling::Per_Line
+        doc.each do |page|
+          page.text.to_s.split(/\n/).each do |line|
+            result = prepare_line(line)
+            if result.words.empty?
+              Rails.logger.warn "Skipping empty page"
+              next
+            else
+              Rails.logger.warn "Set [#{result.hash_s}]: #{result.words_s}"
+              accumulator << result.words
+            end
+          end
+        end
+      elsif PDF_HANDLE_METHOD == PDFHandling::Per_Page
+        doc.each do |page|
+          result = prepare_line(page.text.to_s)
+          if result.words.empty?
+            Rails.logger.warn "Skipping empty page"
+            next
+          else
+            Rails.logger.warn "Set [#{result.hash_s}]: #{result.words_s}"
+            accumulator << result.words
+          end
+        end
       end
     end
   end
 
-  accumulator
+  accumulator.flatten
 end
 
 def get_html_as_words(page_url)
@@ -86,12 +112,12 @@ def get_html_as_words(page_url)
   doc.css('body>*').each do |node|
     result = prepare_line(node.inner_text.to_s.strip)
 
-    if result[:words].empty?
+    if result.words.empty?
       Rails.logger.warn "Skipping empty node"
       next
     else
-      Rails.logger.warn "Set [#{result[:hash_s]}]: #{result[:words_s]}"
-      accumulator << result[:words]
+      Rails.logger.warn "Set [#{result.hash_s}]: #{result.words_s}"
+      accumulator << result.words
     end
   end
 
@@ -99,7 +125,7 @@ def get_html_as_words(page_url)
 end
 
 def prepare_line(line)
-  result = new Line
+  result = Line.new
   temp = line.gsub(/[\W\d_]+/, ' ').strip.downcase
   if temp.empty?
     result
@@ -129,7 +155,7 @@ class Line
 
   def set(words_s)
     @words_s = words_s
-    @hash = Digest::SHA256.hexdigest words_s
+    @hash_s = Digest::SHA256.hexdigest words_s
     @words = words_s.split
   end
 end
