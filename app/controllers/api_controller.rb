@@ -3,43 +3,24 @@ module PDFHandling
   Per_Page = 2
 end
 
-PDF_HANDLE_METHOD = PDFHandling::Per_Line
+PDF_HANDLE_METHOD = PDFHandling::Per_Page
 
 class ApiController < ActionController::API
   def small
-    begin
-      # http://localhost:3000/media/pdf/small.pdf
-      page_url = URI.parse(request.base_url + root_path + 'media/pdf/small.pdf')
-      words = get_pdf_as_words(page_url)
-      render json: words.to_json
-    rescue => e
-      Rails.logger.error "Error fetching page: #{e.message}"
-      head 500
-      render json: { error: "An error occurred", error_message: "#{e.message}" }.to_json
-    end
+    # http://localhost:3000/media/pdf/small.pdf
+    page_url = URI.parse(request.base_url + root_path + 'media/pdf/small.pdf')
+    words = get_pdf_as_words(page_url)
+    render json: words.to_json
   end
 
   def nietzsche
-    begin
-      page_url = URI.parse(request.base_url + root_path + 'tests/nietzsche')
-      words = get_html_as_words(page_url)
-      render json: words.to_json
-    rescue => e
-      Rails.logger.error "Error fetching page: #{e.message}"
-      head 500
-      render json: { error: "An error occurred", error_message: "#{e.message}" }.to_json
-    end
+    page_url = URI.parse(request.base_url + root_path + 'tests/nietzsche')
+    words = get_html_as_words(page_url)
+    render json: words.to_json
   end
 end
 
-class HTMLBody
-  include HTTParty
-  format :html
-end
-
 def get_pdf_as_words(pdf_url)
-  accumulator = []
-
   response = HTTParty.get(pdf_url, {
     headers:{
       "Accept" => "application/pdf",
@@ -51,6 +32,8 @@ def get_pdf_as_words(pdf_url)
   })
 
   response.inspect
+
+  accumulator = Accumulator.new
 
   if response.code == 200
     Tempfile.create do |file|
@@ -69,7 +52,7 @@ def get_pdf_as_words(pdf_url)
               next
             else
               Rails.logger.warn "Set [#{result.hash_s}]: #{result.words_s}"
-              accumulator << result.words
+              accumulator.add_words result.words
             end
           end
         end
@@ -81,20 +64,18 @@ def get_pdf_as_words(pdf_url)
             next
           else
             Rails.logger.warn "Set [#{result.hash_s}]: #{result.words_s}"
-            accumulator << result.words
+            accumulator.add_words result.words
           end
         end
       end
     end
   end
 
-  accumulator.flatten
+  accumulator
 end
 
 def get_html_as_words(page_url)
-  accumulator = []
-
-  response = HTMLBody.get(page_url, {
+  response = HTTParty.get(page_url, {
     headers: {
       "Accept" => "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
       "Accept-Language" => "en-US,en;q=0.5",
@@ -107,6 +88,8 @@ def get_html_as_words(page_url)
 
   response.inspect
 
+  accumulator = Accumulator.new
+
   doc = Nokogiri::HTML5(response.body.to_s)
 
   doc.css('body>*').each do |node|
@@ -117,11 +100,11 @@ def get_html_as_words(page_url)
       next
     else
       Rails.logger.warn "Set [#{result.hash_s}]: #{result.words_s}"
-      accumulator << result.words
+      accumulator.add_words result.words
     end
   end
 
-  accumulator.flatten
+  accumulator
 end
 
 def prepare_line(line)
@@ -141,6 +124,12 @@ class Line
   @words_s = ""
   @hash_s = ""
 
+  def initialize
+    @words = []
+    @words_s = ""
+    @hash_s = ""
+  end
+
   def words
     @words
   end
@@ -157,5 +146,35 @@ class Line
     @words_s = words_s
     @hash_s = Digest::SHA256.hexdigest words_s
     @words = words_s.split
+  end
+end
+
+class Accumulator
+  @accum = {}
+
+  def initialize
+    @accum = {}
+  end
+
+  def increment(word)
+    unless word.empty?
+      if @accum.has_key? word
+        @accum[word] += 1
+      else
+        @accum[word] = 1
+      end
+    end
+  end
+
+  def add_words(words)
+    words.each { |w| increment(w) unless w.empty? }
+  end
+
+  def to_json
+    @accum.to_json
+  end
+
+  def to_s
+    @accum.to_s
   end
 end
