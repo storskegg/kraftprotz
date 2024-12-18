@@ -71,3 +71,7 @@ gem "httparty", "~> 0.22.0"
 gem "digest", "~> 3.1"
 
 gem "redis", "~> 5.3"
+
+gem "spidr", "~> 0.7.1"
+
+gem "robots", "~> 0.10.1"
