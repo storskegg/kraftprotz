@@ -1,3 +1,5 @@
+require 'preprocessor/preprocessor'
+
 module PDFHandling
   Per_Line = 1
   Per_Page = 2
@@ -6,6 +8,10 @@ end
 PDF_HANDLE_METHOD = PDFHandling::Per_Page
 
 class ApiController < ActionController::API
+  def v1_process_site
+
+  end
+
   def small
     # http://localhost:3000/media/pdf/small.pdf
     page_url = URI.parse(request.base_url + root_path + 'media/pdf/small.pdf')
@@ -33,7 +39,7 @@ def get_pdf_as_words(pdf_url)
 
   response.inspect
 
-  accumulator = Accumulator.new
+  accumulator = PreProcessor::WordAccumulator.new
 
   if response.code == 200
     Tempfile.create do |file|
@@ -75,40 +81,48 @@ def get_pdf_as_words(pdf_url)
 end
 
 def get_html_as_words(page_url)
-  response = HTTParty.get(page_url, {
-    headers: {
-      "Accept" => "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-      "Accept-Language" => "en-US,en;q=0.5",
-      "User-Agent" => "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:134.0) Gecko/20100101 Firefox/134.0"
-    },
-    open_timeout: 500.in_milliseconds,
-    write_timeout: 1.seconds,
-    read_timeout: 3.seconds,
-  })
+  begin
+    response = HTTParty.get(page_url, {
+      headers: {
+        "Accept" => "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        "Accept-Language" => "en-US,en;q=0.5",
+        "User-Agent" => "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:134.0) Gecko/20100101 Firefox/134.0"
+      },
+      open_timeout: 500.in_milliseconds,
+      write_timeout: 1.seconds,
+      read_timeout: 3.seconds,
+    })
 
-  response.inspect
+    response.inspect
 
-  accumulator = Accumulator.new
-
-  doc = Nokogiri::HTML5(response.body.to_s)
-
-  doc.css('body>*').each do |node|
-    result = prepare_line(node.inner_text.to_s.strip)
-
-    if result.words.empty?
-      Rails.logger.warn "Skipping empty node"
-      next
-    else
-      Rails.logger.warn "Set [#{result.hash_s}]: #{result.words_s}"
-      accumulator.add_words result.words
+    if response.code != 200
+      raise "#{response.code}"
     end
-  end
 
-  accumulator
+    accumulator = PreProcessor::WordAccumulator.new
+
+    doc = Nokogiri::HTML5(response.body.to_s)
+
+    doc.css('body>*').each do |node|
+      result = prepare_line(node.inner_text.to_s.strip)
+
+      if result.words.empty?
+        Rails.logger.warn "Skipping empty node"
+        next
+      else
+        Rails.logger.warn "Set [#{result.hash_s}]: #{result.words_s}"
+        accumulator.add_words result.words
+      end
+    end
+
+    accumulator
+  rescue HTTParty::Error => e
+    raise e
+  end
 end
 
 def prepare_line(line)
-  result = Line.new
+  result = PreProcessor::LineOfWords.new
   temp = line.gsub(/[\W\d_]+/, ' ').strip.downcase
   if temp.empty?
     result
@@ -117,64 +131,4 @@ def prepare_line(line)
   result.set(temp)
 
   result
-end
-
-class Line
-  @words = []
-  @words_s = ""
-  @hash_s = ""
-
-  def initialize
-    @words = []
-    @words_s = ""
-    @hash_s = ""
-  end
-
-  def words
-    @words
-  end
-
-  def hash_s
-    @hash_s
-  end
-
-  def words_s
-    @words_s
-  end
-
-  def set(words_s)
-    @words_s = words_s
-    @hash_s = Digest::SHA256.hexdigest words_s
-    @words = words_s.split
-  end
-end
-
-class Accumulator
-  @accum = {}
-
-  def initialize
-    @accum = {}
-  end
-
-  def increment(word)
-    unless word.empty?
-      if @accum.has_key? word
-        @accum[word] += 1
-      else
-        @accum[word] = 1
-      end
-    end
-  end
-
-  def add_words(words)
-    words.each { |w| increment(w) unless w.empty? }
-  end
-
-  def to_json
-    @accum.to_json
-  end
-
-  def to_s
-    @accum.to_s
-  end
 end
