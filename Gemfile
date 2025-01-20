@@ -64,7 +64,7 @@ end
 
 gem "poppler", "~> 4.2"
 
-gem "nokogiri", "~> 1.17"
+gem "nokogiri", "~> 1.18"
 
 gem "httparty", "~> 0.22.0"
 
